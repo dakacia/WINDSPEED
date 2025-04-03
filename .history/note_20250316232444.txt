@@ -1,0 +1,3 @@
+Sử dụng npx thay vì cài đặt Expo CLI toàn cục: Nếu bạn không muốn cài đặt Expo CLI toàn cục, bạn có thể sử dụng npx để chạy Expo CLI mà không cần phải cài đặt:
+npx expo-cli start
+dùng node 16.20.2 để expo hoạt động và sử dụng các lệnh expo install

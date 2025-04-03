@@ -1,0 +1,465 @@
+Sử dụng npx thay vì cài đặt Expo CLI toàn cục: Nếu bạn không muốn cài đặt Expo CLI toàn cục, bạn có thể sử dụng npx để chạy Expo CLI mà không cần phải cài đặt:
+npx expo-cli start
+dùng node 16.20.2 để expo hoạt động và sử dụng các lệnh expo install
+
+// import React from "react";
+// import {
+//   View,
+//   Text,
+//   StyleSheet,
+//   SafeAreaView,
+//   ScrollView,
+//   Dimensions,
+// } from "react-native";
+// import { LineChart } from "react-native-chart-kit";
+
+// // Demo data cho chart
+// const data = {
+//   labels: [
+//     "1h",
+//     "2h",
+//     "3h",
+//     "4h",
+//     "5h",
+//     "6h",
+//     "7h",
+//     "8h",
+//     "9h",
+//     "10h",
+//     "11h",
+//     "12h",
+//   ],
+//   datasets: [
+//     {
+//       data: [5000, 5500, 5300, 6000, 6800],
+//       color: (opacity = 1) => `rgba(255, 105, 180, ${opacity})`, // màu chart
+//       strokeWidth: 2,
+//     },
+//   ],
+//   legend: ["Balance"], // Tên legend (tuỳ chọn)
+// };
+
+// const Compass = () => {
+//   return (
+//     <SafeAreaView style={{ flex: 1 }}>
+//       <ScrollView style={styles.container}>
+//         {/* Số tiền lớn ở trên */}
+//         <Text style={styles.bigBalance}>$9236</Text>
+
+//         {/* Biểu đồ */}
+//         <LineChart
+//           data={data}
+//           width={Dimensions.get("window").width * 0.9} // chiếm 90% chiều rộng màn hình
+//           height={220}
+//           chartConfig={{
+//             backgroundColor: "#ffffff",
+//             backgroundGradientFrom: "#ffffff",
+//             backgroundGradientTo: "#ffffff",
+//             decimalPlaces: 0,
+//             color: (opacity = 1) => `rgba(0,0,0,${opacity})`,
+//             labelColor: (opacity = 1) => `rgba(0,0,0,${opacity})`,
+//             style: {
+//               borderRadius: 16,
+//             },
+//             propsForDots: {
+//               r: "3",
+//               strokeWidth: "2",
+//               stroke: "#ffa726",
+//             },
+//           }}
+//           bezier
+//           style={styles.chart}
+//         />
+
+//         {/* Tiêu đề cho bảng */}
+//         <Text style={styles.sectionTitle}>Cash</Text>
+
+//         {/* Bảng hiển thị các tài khoản */}
+//         <View style={styles.accountItem}>
+//           {/* Thay icon thật bằng Image hoặc Ionicons nếu muốn */}
+//           <View style={styles.iconPlaceholder} />
+//           <View style={styles.accountInfo}>
+//             <Text style={styles.accountName}>DuongNoOb</Text>
+//             <Text style={styles.accountType}>Personal Savings</Text>
+//           </View>
+//           <Text style={styles.accountBalance}>$9,2875</Text>
+//         </View>
+
+//         <View style={styles.accountItem}>
+//           <View style={styles.iconPlaceholder} />
+//           <View style={styles.accountInfo}>
+//             <Text style={styles.accountName}>Bank of America</Text>
+//             <Text style={styles.accountType}>BofA Checkings</Text>
+//           </View>
+//           <Text style={styles.accountBalance}>$12,030</Text>
+//         </View>
+
+//         {/* ... Thêm item tuỳ ý */}
+//       </ScrollView>
+//     </SafeAreaView>
+//   );
+// };
+
+// export default Compass;
+
+// const styles = StyleSheet.create({
+//   container: {
+//     paddingHorizontal: 16,
+//     backgroundColor: "#FFF",
+//   },
+//   bigBalance: {
+//     fontSize: 32,
+//     fontWeight: "bold",
+//     marginTop: 16,
+//     textAlign: "center",
+//   },
+//   chart: {
+//     alignSelf: "center",
+//     marginVertical: 16,
+//     borderRadius: 16,
+//   },
+//   sectionTitle: {
+//     fontSize: 18,
+//     fontWeight: "bold",
+//     marginTop: 8,
+//     marginBottom: 8,
+//   },
+//   accountItem: {
+//     flexDirection: "row",
+//     alignItems: "center",
+//     paddingVertical: 12,
+//     borderBottomWidth: 0.5,
+//     borderBottomColor: "#ccc",
+//   },
+//   iconPlaceholder: {
+//     width: 40,
+//     height: 40,
+//     borderRadius: 20,
+//     backgroundColor: "#ddd",
+//     marginRight: 12,
+//   },
+//   accountInfo: {
+//     flex: 1,
+//   },
+//   accountName: {
+//     fontWeight: "600",
+//     fontSize: 16,
+//   },
+//   accountType: {
+//     color: "#888",
+//     fontSize: 14,
+//   },
+//   accountBalance: {
+//     fontWeight: "600",
+//     fontSize: 16,
+//   },
+// });
+
+
+import React, { useState, useEffect, useRef } from "react";
+import { View, Text, StyleSheet } from "react-native";
+import Svg, { Circle, Line, Text as SvgText } from "react-native-svg";
+import Animated, {
+  useSharedValue,
+  useAnimatedStyle,
+  withTiming,
+} from "react-native-reanimated";
+import * as Location from "expo-location";
+import { Magnetometer } from "expo-sensors";
+
+const COMPASS_SIZE = 400;
+const CENTER = 100;
+const RADIUS = 90;
+
+const Compass = () => {
+  const lastDirection = useRef(0);
+  const [direction, setDirection] = useState(220);
+  const rotate = useSharedValue(220);
+  const [angle, setAngle] = useState(0);
+  const [location, setLocation] = useState(null);
+  const [errorMsg, setErrorMsg] = useState("");
+  const lastLocation = useRef(null);
+  const subscriptionRef = useRef(null);
+
+  // Hàm tính khoảng cách
+  const calculateDistance = (lat1, lon1, lat2, lon2) => {
+    const R = 6371e3; // Bán kính Trái Đất (mét)
+    const φ1 = (lat1 * Math.PI) / 180;
+    const φ2 = (lat2 * Math.PI) / 180;
+    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+    const a =
+      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c; // Khoảng cách tính bằng mét
+  };
+
+  // Lấy dữ liệu vị trí
+  useEffect(() => {
+    const startWatching = async () => {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== "granted") {
+        setErrorMsg("Bạn chưa cấp quyền truy cập vị trí!");
+        return;
+      }
+
+      subscriptionRef.current = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.BestForNavigation,
+          timeInterval: 1000,
+          distanceInterval: 5,
+        },
+        (loc) => {
+          const newCoords = loc.coords;
+
+          if (lastLocation.current) {
+            const distance = calculateDistance(
+              lastLocation.current.latitude,
+              lastLocation.current.longitude,
+              newCoords.latitude,
+              newCoords.longitude
+            );
+
+            if (distance < 5) {
+              return;
+            }
+          }
+
+          setLocation(newCoords);
+          lastLocation.current = newCoords;
+        }
+      );
+    };
+
+    startWatching();
+
+    return () => {
+      if (subscriptionRef.current) {
+        subscriptionRef.current.remove();
+      }
+    };
+  }, []);
+
+  // Lấy dữ liệu hướng từ Magnetometer
+  useEffect(() => {
+    let subscription = Magnetometer.addListener((data) => {
+      let { x, y } = data;
+      let newAngle = Math.atan2(y, x) * (180 / Math.PI);
+      newAngle = (newAngle + 268 + 360) % 360; // Điều chỉnh góc
+      setAngle(Math.round(newAngle));
+    });
+
+    return () => {
+      subscription && subscription.remove();
+    };
+  }, []);
+
+  // Cập nhật hướng la bàn
+  useEffect(() => {
+    const newDirection = (angle + 90) % 360;
+    const currentDirection = rotate.value % 360;
+    let delta = newDirection - currentDirection;
+
+    if (delta > 180) delta -= 360;
+    else if (delta < -180) delta += 360;
+
+    const finalDirection = currentDirection + delta;
+
+    // Chỉ cập nhật khi thay đổi > 1 độ để tránh rung
+    if (Math.abs(finalDirection - lastDirection.current) > 1) {
+      lastDirection.current = finalDirection;
+      setDirection(finalDirection);
+
+      // Sử dụng withTiming thay vì withSpring để giảm rung
+      rotate.value = withTiming(finalDirection, { duration: 200 });
+    }
+  }, [angle]);
+
+  // Style động cho la bàn
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ rotate: `${-rotate.value}deg` }],
+  }));
+
+  return (
+    <View style={styles.all}>
+      <View style={styles.container}>
+        <Animated.View style={[animatedStyle]}>
+          <Svg width={COMPASS_SIZE} height={COMPASS_SIZE} viewBox="0 0 200 200">
+            <Circle
+              cx="100"
+              cy="100"
+              r="90"
+              stroke="white"
+              strokeWidth="0"
+              fill="black"
+            />
+            {Array.from({ length: 360 }).map((_, i) => {
+              const rad = (i * Math.PI) / 180;
+              const x1 = CENTER + RADIUS * Math.cos(rad);
+              const y1 = CENTER + RADIUS * Math.sin(rad);
+              const x2 =
+                CENTER + (RADIUS - (i % 30 === 0 ? 10 : 5)) * Math.cos(rad);
+              const y2 =
+                CENTER + (RADIUS - (i % 30 === 0 ? 10 : 5)) * Math.sin(rad);
+              const textX = CENTER + (RADIUS - 20) * Math.cos(rad);
+              const textY = CENTER + (RADIUS - 20) * Math.sin(rad);
+
+              return (
+                <React.Fragment key={i}>
+                  <Line
+                    x1={x1}
+                    y1={y1}
+                    x2={x2}
+                    y2={y2}
+                    stroke={i === 0 ? "red" : "white"}
+                    strokeWidth={i % 30 === 0 ? 1.5 : 0.5}
+                  />
+                  {i % 30 === 0 && (
+                    <SvgText
+                      x={textX}
+                      y={textY}
+                      fontSize={10}
+                      fill="white"
+                      textAnchor="middle"
+                      alignmentBaseline="middle"
+                    >
+                      {i}°
+                    </SvgText>
+                  )}
+                </React.Fragment>
+              );
+            })}
+            <SvgText x="95" y="20" fill="white" fontSize="16" fontWeight="bold">
+              T
+            </SvgText>
+            <SvgText
+              x="95"
+              y="185"
+              fill="white"
+              fontSize="16"
+              fontWeight="bold"
+            >
+              Đ
+            </SvgText>
+            <SvgText
+              x="175"
+              y="105"
+              fill="white"
+              fontSize="16"
+              fontWeight="bold"
+            >
+              B
+            </SvgText>
+            <SvgText
+              x="15"
+              y="105"
+              fill="white"
+              fontSize="16"
+              fontWeight="bold"
+            >
+              N
+            </SvgText>
+          </Svg>
+        </Animated.View>
+
+        <View style={styles.needleContainer}>
+          <Svg width="400" height="400" viewBox="0 0 400 400">
+            <Line
+              x1="200"
+              y1="10"
+              x2="200"
+              y2="68"
+              stroke="red"
+              strokeWidth="3"
+              strokeLinecap="round"
+            />
+            <Line
+              x1="200"
+              y1="120"
+              x2="200"
+              y2="280"
+              stroke="white"
+              strokeWidth="1"
+            />
+            <Line
+              x1="110"
+              y1="200"
+              x2="280"
+              y2="200"
+              stroke="white"
+              strokeWidth="1"
+            />
+          </Svg>
+        </View>
+      </View>
+
+      <Text style={styles.angleText}>{Math.round(angle)}°</Text>
+      <View style={styles.locationContainer}>
+        <Text style={styles.locationTitle}>📍 Vị trí hiện tại:</Text>
+        {location ? (
+          <Text style={styles.locationText}>
+            Latitude: {location.latitude}
+            {"\n"}
+            Longitude: {location.longitude.toFixed(4)}
+            {"\n"}
+            <Text>Hướng: {angle}°</Text>
+          </Text>
+        ) : (
+          <Text style={styles.locationText}>
+            {errorMsg || "Đang lấy vị trí..."}
+          </Text>
+        )}
+      </View>
+    </View>
+  );
+};
+
+const styles = StyleSheet.create({
+  all: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#000",
+  },
+  container: {
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  needleContainer: {
+    position: "absolute",
+    width: 400,
+    height: 400,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  angleText: {
+    fontSize: 32,
+    color: "white",
+    fontWeight: "bold",
+    marginTop: 20,
+    textAlign: "center",
+  },
+  locationContainer: {
+    marginTop: 20,
+    alignItems: "center",
+    padding: 10,
+    borderRadius: 10,
+    backgroundColor: "#222",
+  },
+  locationTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "white",
+  },
+  locationText: {
+    fontSize: 16,
+    color: "white",
+    marginTop: 5,
+    textAlign: "center",
+  },
+});
+
+export default Compass;
